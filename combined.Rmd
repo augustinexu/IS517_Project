@@ -127,28 +127,28 @@ for (x in 1:148){
 
 
 ```{r}
-#Logistical Regression groupby Team only. 
+#Logistical Regression groupby position only. 
 set.seed(1)
 team = function(df){
   model = glm(WIN~FGM + FGA + FG_PCT + FG3M + FG3A + FG3_PCT + FTM + FTA + FT_PCT + OREB + DREB + REB + AST + STL + BLK + TO + PF + PTS + PLUS_MINUS, data=df, family = binomial(logit))
   return(model)
 }
 teampred = stats.train %>%
-  group_by(TEAM_ABBREVIATION)%>%
+  group_by(START_POSITION)%>%
   do(pred = predict(team(.), newdata = stats.test))
 teampred.train = stats.train %>%
-  group_by(TEAM_ABBREVIATION)%>%
+  group_by(START_POSITION)%>%
   do(pred = predict(team(.), newdata = stats.train))
-error_rate_test = rep(0,30)
-for (x in 1:30){
+error_rate_test = rep(0,5)
+for (x in 1:5){
   pred_list = teampred$pred[[x]]
   pred = rep(0,length(pred_list))
   threshold = 0.5
   pred[pred_list > threshold] = 1
   error_rate_test[x] = mean(pred != stats.test$WIN)
 }
-error_rate_train = rep(0,30)
-for (x in 1:30){
+error_rate_train = rep(0,5)
+for (x in 1:5){
   pred_list = teampred.train$pred[[x]]
   pred = rep(0,length(pred_list))
   threshold = 0.5
@@ -165,21 +165,21 @@ rf.pos = function(df){
   return(model)
 }
 rf.pred = stats.train %>%
-  group_by(TEAM_ABBREVIATION)%>%
+  group_by(START_POSITION)%>%
   do(pred = predict(rf.pos(.), newdata = stats.test))
 rfpred.train = stats.train %>%
-  group_by(TEAM_ABBREVIATION)%>%
+  group_by(START_POSITION)%>%
   do(pred = predict(rf.pos(.), newdata = stats.train))
-rf.error_rate = rep(0,30)
-for (x in 1:30){
+rf.error_rate = rep(0,5)
+for (x in 1:5){
   pred_list = rf.pred$pred[[x]]
   pred = rep(0,length(pred_list))
   threshold = 0.5
   pred[pred_list > threshold] = 1
   rf.error_rate[x] = mean(pred != stats.test$WIN)
 }
-rf.error_rate_train = rep(0,30)
-for (x in 1:30){
+rf.error_rate_train = rep(0,5)
+for (x in 1:5){
   pred_list = rfpred.train$pred[[x]]
   pred = rep(0,length(pred_list))
   threshold = 0.5
@@ -196,27 +196,39 @@ svm.team = function(df){
   return(model)
 }
 svm.pred = stats.train %>%
-  group_by(TEAM_ABBREVIATION)%>%
+  group_by(START_POSITION)%>%
   do(pred = predict(svm.team(.), newdata = stats.test))
 svmpred.train = stats.train %>%
-  group_by(TEAM_ABBREVIATION)%>%
+  group_by(START_POSITION)%>%
   do(pred = predict(svm.team(.), newdata = stats.train))
-svm.error_rate = rep(0,30)
-for (x in 1:30){
+svm.error_rate = rep(0,5)
+for (x in 1:5){
   pred_list = svm.pred$pred[[x]]
   pred = rep(0,length(pred_list))
   threshold = 0.5
   pred[pred_list > threshold] = 1
   svm.error_rate[x] = mean(pred != stats.test$WIN)
 }
-svm.error_rate_train = rep(0,30)
-for (x in 1:30){
+svm.error_rate_train = rep(0,5)
+for (x in 1:5){
   pred_list = svmpred.train$pred[[x]]
   pred = rep(0,length(pred_list))
   threshold = 0.5
   pred[pred_list > threshold] = 1
   svm.error_rate_train[x] = mean(pred != stats.train$WIN)
 }
+```
+
+```{r}
+bench_results_train <- data.frame(svm = svm.error_rate_train, RF = rf.error_rate_train, lm=error_rate_train)
+row.names(bench_results_train) <- lm_models$START_POSITION
+
+bench_results_test <- data.frame(svm = svm.error_rate, RF = rf.error_rate, lm=error_rate_test)
+row.names(bench_results_test) <- lm_models$START_POSITION
+
+bench_results_train
+bench_results_test
+barplot(t(as.matrix(bench_results_train)),ylim=c(0,0.4),beside=TRUE,legend.text=TRUE,main='Benches By position --- Training error')
 ```
 
 # Group by positions
@@ -425,6 +437,10 @@ barplot(t(as.matrix(df_results_train)),ylim=c(0,0.4),beside=TRUE,legend.text=TRU
 ```{r}
 barplot(t(as.matrix(df_results_test)),ylim=c(0,0.4),beside=TRUE,legend.text=TRUE,main='By position --- Testing error')
 ```
+```{r}
+bench_results_train <- data.frame(bench_svm = svm.error_rate_train, starter_svm = svm_error_rate_train, RF = rf.error_rate_train, lm=error_rate_train)
+```
+
 
 ## =============================================================================
 
