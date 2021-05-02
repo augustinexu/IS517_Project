@@ -1,0 +1,749 @@
+---
+title: "combined"
+author: "AugustineXu"
+date: "5/2/2021"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(readr)
+library(MASS)
+library(e1071)
+library(dplyr)
+library(randomForest)
+benches = read_csv('2019-2020_ANNO_games_details_BENCH.csv')
+```
+
+```{r}
+set.seed(1)
+benches$WIN = as.factor(benches$WIN)
+train = sample(1:nrow(benches), nrow(benches)*.7)
+bench.train = benches[train,]
+bench.test = benches[-train,]
+stats = subset(benches,select = -c(X1,GAME_ID,TEAM_CITY,TEAM_ID,PLAYER_ID,PLAYER_NAME,MIN,Home_team,COMMENT))
+stats = na.omit(stats)
+stats.train = stats[train,]
+stats.test = stats[-train,]
+attach(benches)
+```
+
+```{r}
+#Logistical Regression groupby Team and Position. 
+set.seed(1)
+team_pos = function(df){
+  model = glm(WIN~FGM + FGA + FG_PCT + FG3M + FG3A + FG3_PCT + FTM + FTA + FT_PCT + OREB + DREB + REB + AST + STL + BLK + TO + PF + PTS + PLUS_MINUS, data=df, family = binomial(logit))
+  return(model)
+}
+pospred = stats.train %>%
+  group_by(TEAM_ABBREVIATION,START_POSITION)%>%
+  do(pred = predict(team_pos(.), newdata = stats.test))
+pospred.train = stats.train %>%
+  group_by(TEAM_ABBREVIATION,START_POSITION)%>%
+  do(pred = predict(team_pos(.), newdata = stats.train))
+error_rate = rep(0,148)
+for (x in 1:148){
+  pred_list = pospred$pred[[x]]
+  pred = rep(0,length(pred_list))
+  threshold = 0.5
+  pred[pred_list > threshold] = 1
+  error_rate[x] = mean(pred != stats.test$WIN)
+}
+error_rate_train = rep(0,148)
+for (x in 1:148){
+  pred_list = pospred.train$pred[[x]]
+  pred = rep(0,length(pred_list))
+  threshold = 0.5
+  pred[pred_list > threshold] = 1
+  error_rate_train[x] = mean(pred != stats.train$WIN)
+}
+```
+
+```{r}
+#RandomForest groupby Team and Position. 
+set.seed(1)
+rf.team_pos = function(df){
+  model = randomForest(as.numeric(WIN)~FGM + FGA + FG_PCT + FG3M + FG3A + FG3_PCT + FTM + FTA + FT_PCT + OREB + DREB + REB + AST + STL + BLK + TO + PF + PTS + PLUS_MINUS, data=df, ntree=25)
+  return(model)
+}
+rf.pospred = stats.train %>%
+  group_by(TEAM_ABBREVIATION,START_POSITION)%>%
+  do(pred = predict(rf.team_pos(.), newdata = stats.test))
+rfpospred.train = stats.train %>%
+  group_by(TEAM_ABBREVIATION,START_POSITION)%>%
+  do(pred = predict(rf.team_pos(.), newdata = stats.train))
+rfpos.error_rate = rep(0,148)
+for (x in 1:148){
+  pred_list = rf.pospred$pred[[x]]
+  pred = rep(0,length(pred_list))
+  threshold = 0.5
+  pred[pred_list > threshold] = 1
+  rfpos.error_rate[x] = mean(pred != stats.test$WIN)
+}
+rfpos.error_rate_train = rep(0,148)
+for (x in 1:148){
+  pred_list = rfpospred.train$pred[[x]]
+  pred = rep(0,length(pred_list))
+  threshold = 0.5
+  pred[pred_list > threshold] = 1
+  rfpos.error_rate_train[x] = mean(pred != stats.train$WIN)
+}
+```
+
+```{r}
+#SVM groupby Team and Position. 
+set.seed(1)
+svm.team_pos = function(df){
+  model = svm(WIN~FGM + FGA + FG_PCT + FG3M + FG3A + FG3_PCT + FTM + FTA + FT_PCT + OREB + DREB + REB + AST + STL + BLK + TO + PF + PTS + PLUS_MINUS, data=df, kernel='radial')
+  return(model)
+}
+svm.pospred = stats.train %>%
+  group_by(TEAM_ABBREVIATION,START_POSITION)%>%
+  do(pred = predict(svm.team_pos(.), newdata = stats.test))
+svmpospred.train = stats.train %>%
+  group_by(TEAM_ABBREVIATION,START_POSITION)%>%
+  do(pred = predict(svm.team_pos(.), newdata = stats.train))
+svmpos.error_rate = rep(0,148)
+for (x in 1:148){
+  pred_list = svm.pospred$pred[[x]]
+  pred = rep(0,length(pred_list))
+  threshold = 0.5
+  pred[pred_list > threshold] = 1
+  svmpos.error_rate[x] = mean(pred != stats.test$WIN)
+}
+svmpos.error_rate_train = rep(0,148)
+for (x in 1:148){
+  pred_list = svmpospred.train$pred[[x]]
+  pred = rep(0,length(pred_list))
+  threshold = 0.5
+  pred[pred_list > threshold] = 1
+  svmpos.error_rate_train[x] = mean(pred != stats.train$WIN)
+}
+```
+
+
+
+```{r}
+#Logistical Regression groupby Team only. 
+set.seed(1)
+team = function(df){
+  model = glm(WIN~FGM + FGA + FG_PCT + FG3M + FG3A + FG3_PCT + FTM + FTA + FT_PCT + OREB + DREB + REB + AST + STL + BLK + TO + PF + PTS + PLUS_MINUS, data=df, family = binomial(logit))
+  return(model)
+}
+teampred = stats.train %>%
+  group_by(TEAM_ABBREVIATION)%>%
+  do(pred = predict(team(.), newdata = stats.test))
+teampred.train = stats.train %>%
+  group_by(TEAM_ABBREVIATION)%>%
+  do(pred = predict(team(.), newdata = stats.train))
+error_rate_test = rep(0,30)
+for (x in 1:30){
+  pred_list = teampred$pred[[x]]
+  pred = rep(0,length(pred_list))
+  threshold = 0.5
+  pred[pred_list > threshold] = 1
+  error_rate_test[x] = mean(pred != stats.test$WIN)
+}
+error_rate_train = rep(0,30)
+for (x in 1:30){
+  pred_list = teampred.train$pred[[x]]
+  pred = rep(0,length(pred_list))
+  threshold = 0.5
+  pred[pred_list > threshold] = 1
+  error_rate_train[x] = mean(pred != stats.train$WIN)
+}
+```
+
+```{r}
+#RandomForest groupby Team only. 
+set.seed(1)
+rf.pos = function(df){
+  model = randomForest(as.numeric(WIN)~FGM + FGA + FG_PCT + FG3M + FG3A + FG3_PCT + FTM + FTA + FT_PCT + OREB + DREB + REB + AST + STL + BLK + TO + PF + PTS + PLUS_MINUS, data=df, ntree=25)
+  return(model)
+}
+rf.pred = stats.train %>%
+  group_by(TEAM_ABBREVIATION)%>%
+  do(pred = predict(rf.pos(.), newdata = stats.test))
+rfpred.train = stats.train %>%
+  group_by(TEAM_ABBREVIATION)%>%
+  do(pred = predict(rf.pos(.), newdata = stats.train))
+rf.error_rate = rep(0,30)
+for (x in 1:30){
+  pred_list = rf.pred$pred[[x]]
+  pred = rep(0,length(pred_list))
+  threshold = 0.5
+  pred[pred_list > threshold] = 1
+  rf.error_rate[x] = mean(pred != stats.test$WIN)
+}
+rf.error_rate_train = rep(0,30)
+for (x in 1:30){
+  pred_list = rfpred.train$pred[[x]]
+  pred = rep(0,length(pred_list))
+  threshold = 0.5
+  pred[pred_list > threshold] = 1
+  rf.error_rate_train[x] = mean(pred != stats.train$WIN)
+}
+```
+
+```{r}
+#SVM groupby Team only. 
+set.seed(1)
+svm.team = function(df){
+  model = svm(WIN~FGM + FGA + FG_PCT + FG3M + FG3A + FG3_PCT + FTM + FTA + FT_PCT + OREB + DREB + REB + AST + STL + BLK + TO + PF + PTS + PLUS_MINUS, data=df, kernel='radial')
+  return(model)
+}
+svm.pred = stats.train %>%
+  group_by(TEAM_ABBREVIATION)%>%
+  do(pred = predict(svm.team(.), newdata = stats.test))
+svmpred.train = stats.train %>%
+  group_by(TEAM_ABBREVIATION)%>%
+  do(pred = predict(svm.team(.), newdata = stats.train))
+svm.error_rate = rep(0,30)
+for (x in 1:30){
+  pred_list = svm.pred$pred[[x]]
+  pred = rep(0,length(pred_list))
+  threshold = 0.5
+  pred[pred_list > threshold] = 1
+  svm.error_rate[x] = mean(pred != stats.test$WIN)
+}
+svm.error_rate_train = rep(0,30)
+for (x in 1:30){
+  pred_list = svmpred.train$pred[[x]]
+  pred = rep(0,length(pred_list))
+  threshold = 0.5
+  pred[pred_list > threshold] = 1
+  svm.error_rate_train[x] = mean(pred != stats.train$WIN)
+}
+```
+
+# Group by positions
+```{r setup, message=FALSE}
+library(ISLR)
+library(MASS)
+library(class)
+library(boot)
+library(glmnet)
+library(pls)
+library(splines)
+library(gam)
+library(gbm)
+library(randomForest)
+library(e1071)
+library(dplyr)
+library(broom)
+library(tidyr)
+library(ggplot2)
+set.seed(100)
+```
+
+# LOGISTIC REGRESSION MODEL:
+
+```{r}
+library(readr)
+library(MASS)
+starters = read_csv('2019-2020_ANNO_games_details_STARTER.csv')
+benches = read_csv('2019-2020_ANNO_games_details_BENCH.csv')
+starters = subset(starters, select = -c(COMMENT))
+starters = na.omit(starters)
+starters$WIN = as.numeric(starters$WIN)
+starters$Home_team = as.numeric(starters$Home_team)
+starters$TEAM_ABBREVIATION = toupper(starters$TEAM_ABBREVIATION)
+starters$START_POSITION = toupper(starters$START_POSITION)
+
+#
+d_length = dim(starters)[1]
+train_index = sample(d_length, d_length/2)
+train_starter = starters[train_index,]
+test_starter = starters[-train_index,]
+
+
+# Position -- 8th
+X_train = starters[train_index, 9:29]
+X_test = starters[-train_index, 9:29]
+Y_train = starters[train_index, 30]
+Y_test = starters[-train_index, 30]
+
+#
+starters_numeric = starters[, 9:30]
+
+```
+```{r}
+# attach(train_starter)
+library(dplyr)
+set.seed(1)
+team = train_starter %>% group_by(START_POSITION)
+# team = train_starter %>% group_by(TEAM_ABBREVIATION)
+
+# Fit the models
+lm_models = train_starter %>% 
+  group_by(START_POSITION) %>%
+  do(fit = glm(WIN ~ MIN + FGM + FGA + FG_PCT + FG3M + FG3A + FG3_PCT + FTM + FTA + FT_PCT + OREB + DREB + REB + AST + STL + BLK + TO + PF + PTS + PLUS_MINUS + Home_team, data=., family = binomial(logit)))
+
+
+#
+my_lm <- function(df) {
+    fit = glm(WIN ~ MIN + FGM + FGA + FG_PCT + FG3M + FG3A + FG3_PCT + FTM + FTA + FT_PCT + OREB + DREB + REB + AST + STL + BLK + TO + PF + PTS + PLUS_MINUS + Home_team, data=df, family = binomial(logit))
+    return(fit)
+}
+
+lm_preds = train_starter %>% 
+  group_by(START_POSITION) %>%
+  do(pred = predict(my_lm(.), newdata = test_starter))
+
+lm_preds_train = train_starter %>% 
+  group_by(START_POSITION) %>%
+  do(pred = predict(my_lm(.), newdata = train_starter))
+
+#
+lm_error_rate_test = rep(0, 5)
+for (x in 1:5) {
+  lm_pred_list = lm_preds$pred[[x]]
+  lm_pred = rep(0, length(lm_pred_list))
+  threshold <- 0.5
+  lm_pred[lm_pred_list > threshold] = 1
+  lm_error_rate_test[x] = mean(lm_pred != test_starter$WIN)
+}
+
+#
+lm_error_rate_train = rep(0, 5)
+for (x in 1:5) {
+  lm_pred_list = lm_preds_train$pred[[x]]
+  lm_pred = rep(0, length(lm_pred_list))
+  threshold <- 0.5
+  lm_pred[lm_pred_list > threshold] = 1
+  lm_error_rate_train[x] = mean(lm_pred != train_starter$WIN)
+}
+
+
+print(lm_models$START_POSITION)
+print(lm_error_rate_train)
+print(lm_error_rate_test)
+```
+# Random Forest model:
+
+```{r}
+#
+my_rf <- function(df) {
+    fit = randomForest(WIN ~ MIN + FGM + FGA + FG_PCT + FG3M + FG3A + FG3_PCT + FTM + FTA + FT_PCT + OREB + DREB + REB + AST + STL + BLK + TO + PF + PTS + PLUS_MINUS + Home_team, data = df, mtry = 5, importance=TRUE, ntrees=25)
+    return(fit)
+}
+
+rf_preds = train_starter %>% 
+  group_by(START_POSITION) %>%
+  do(pred = predict(my_rf(.), newdata = test_starter))
+
+rf_preds_train = train_starter %>% 
+  group_by(START_POSITION) %>%
+  do(pred = predict(my_rf(.), newdata = train_starter))
+
+#
+rf_error_rate_test = rep(0, 5)
+for (x in 1:5) {
+  rf_pred_list = rf_preds$pred[[x]]
+  rf_pred = rep(0, length(rf_pred_list))
+  threshold <- 0.5
+  rf_pred[rf_pred_list > threshold] = 1
+  rf_error_rate_test[x] = mean(rf_pred != test_starter$WIN)
+}
+
+rf_error_rate_train = rep(0, 5)
+for (x in 1:5) {
+  rf_pred_list = rf_preds_train$pred[[x]]
+  rf_pred = rep(0, length(rf_pred_list))
+  threshold <- 0.5
+  rf_pred[rf_pred_list > threshold] = 1
+  rf_error_rate_train[x] = mean(rf_pred != train_starter$WIN)
+}
+
+
+print(lm_models$START_POSITION)
+print(rf_error_rate_train)
+print(rf_error_rate_test)
+```
+
+
+# SVM model:
+
+```{r}
+#
+my_svm <- function(df) {
+    fit = svm(WIN~ MIN + FGM + FGA + FG_PCT + FG3M + FG3A + FG3_PCT + FTM + FTA + FT_PCT + OREB + DREB + REB + AST + STL + BLK + TO + PF + PTS + PLUS_MINUS + Home_team, kernel = "radial", data = df)
+    return(fit)
+}
+
+svm_preds = train_starter %>% 
+  group_by(START_POSITION) %>%
+  do(pred = predict(my_svm(.), newdata = test_starter))
+
+svm_preds_train = train_starter %>% 
+  group_by(START_POSITION) %>%
+  do(pred = predict(my_svm(.), newdata = train_starter))
+
+
+#
+svm_error_rate_test = rep(0, 5)
+for (x in 1:5) {
+  svm_pred_list = svm_preds$pred[[x]]
+  svm_pred = rep(0, length(svm_pred_list))
+  threshold <- 0.5
+  svm_pred[svm_pred_list > threshold] = 1
+  svm_error_rate_test[x] = mean(svm_pred != test_starter$WIN)
+}
+
+svm_error_rate_train = rep(0, 5)
+for (x in 1:5) {
+  svm_pred_list = svm_preds_train$pred[[x]]
+  svm_pred = rep(0, length(svm_pred_list))
+  threshold <- 0.5
+  svm_pred[svm_pred_list > threshold] = 1
+  svm_error_rate_train[x] = mean(svm_pred != train_starter$WIN)
+}
+
+
+print(lm_models$START_POSITION)
+print(svm_error_rate_train)
+print(svm_error_rate_test)
+```
+
+
+# Print the results
+```{r}
+df_results_train <- data.frame(svm = svm_error_rate_train, RF = rf_error_rate_train, lm=lm_error_rate_train)
+row.names(df_results_train) <- lm_models$START_POSITION
+
+df_results_test <- data.frame(svm = svm_error_rate_test, RF = rf_error_rate_test, lm=lm_error_rate_test)
+row.names(df_results_test) <- lm_models$START_POSITION
+
+df_results_train
+df_results_test
+barplot(t(as.matrix(df_results_train)),ylim=c(0,0.4),beside=TRUE,legend.text=TRUE,main='By position --- Training error')
+```
+
+```{r}
+barplot(t(as.matrix(df_results_test)),ylim=c(0,0.4),beside=TRUE,legend.text=TRUE,main='By position --- Testing error')
+```
+
+## =============================================================================
+
+# Group by teams
+
+
+# LOGISTIC REGRESSION MODEL:
+
+```{r}
+library(readr)
+library(MASS)
+starters = read_csv('2019-2020_ANNO_games_details_STARTER.csv')
+benches = read_csv('2019-2020_ANNO_games_details_BENCH.csv')
+starters = subset(starters, select = -c(COMMENT))
+starters = na.omit(starters)
+starters$WIN = as.numeric(starters$WIN)
+starters$Home_team = as.numeric(starters$Home_team)
+starters$TEAM_ABBREVIATION = toupper(starters$TEAM_ABBREVIATION)
+starters$START_POSITION = toupper(starters$START_POSITION)
+
+#
+d_length = dim(starters)[1]
+train_index = sample(d_length, d_length/2)
+train_starter = starters[train_index,]
+test_starter = starters[-train_index,]
+
+
+# Position -- 8th
+X_train = starters[train_index, 9:29]
+X_test = starters[-train_index, 9:29]
+Y_train = starters[train_index, 30]
+Y_test = starters[-train_index, 30]
+
+#
+starters_numeric = starters[, 9:30]
+
+```
+```{r, warning = FALSE}
+# attach(train_starter)
+library(dplyr)
+set.seed(1)
+# team = train_starter %>% group_by(START_POSITION)
+team = train_starter %>% group_by(TEAM_ABBREVIATION)
+
+# Fit the models
+lm_models = train_starter %>% 
+  group_by(TEAM_ABBREVIATION) %>%
+  do(fit = glm(WIN ~ MIN + FGM + FGA + FG_PCT + FG3M + FG3A + FG3_PCT + FTM + FTA + FT_PCT + OREB + DREB + REB + AST + STL + BLK + TO + PF + PTS + PLUS_MINUS + Home_team, data=., family = binomial(logit)))
+
+
+#
+my_lm <- function(df) {
+    fit = glm(WIN ~ MIN + FGM + FGA + FG_PCT + FG3M + FG3A + FG3_PCT + FTM + FTA + FT_PCT + OREB + DREB + REB + AST + STL + BLK + TO + PF + PTS + PLUS_MINUS + Home_team, data=df, family = binomial(logit))
+    return(fit)
+}
+
+lm_preds = train_starter %>% 
+  group_by(TEAM_ABBREVIATION) %>%
+  do(pred = predict(my_lm(.), newdata = test_starter))
+
+lm_preds_train = train_starter %>% 
+  group_by(TEAM_ABBREVIATION) %>%
+  do(pred = predict(my_lm(.), newdata = train_starter))
+
+#
+lm_error_rate_test = rep(0, 30)
+for (x in 1:30) {
+  lm_pred_list = lm_preds$pred[[x]]
+  lm_pred = rep(0, length(lm_pred_list))
+  threshold <- 0.5
+  lm_pred[lm_pred_list > threshold] = 1
+  lm_error_rate_test[x] = mean(lm_pred != test_starter$WIN)
+}
+
+#
+lm_error_rate_train = rep(0, 30)
+for (x in 1:30) {
+  lm_pred_list = lm_preds_train$pred[[x]]
+  lm_pred = rep(0, length(lm_pred_list))
+  threshold <- 0.5
+  lm_pred[lm_pred_list > threshold] = 1
+  lm_error_rate_train[x] = mean(lm_pred != train_starter$WIN)
+}
+
+
+print(lm_models$TEAM_ABBREVIATION)
+print(lm_error_rate_train)
+print(lm_error_rate_test)
+```
+# Random Forest model:
+
+```{r, warning = FALSE}
+#
+my_rf <- function(df) {
+    fit = randomForest(WIN ~ MIN + FGM + FGA + FG_PCT + FG3M + FG3A + FG3_PCT + FTM + FTA + FT_PCT + OREB + DREB + REB + AST + STL + BLK + TO + PF + PTS + PLUS_MINUS + Home_team, data = df, mtry = 5, importance=TRUE, ntrees=25)
+    return(fit)
+}
+
+rf_preds = train_starter %>% 
+  group_by(TEAM_ABBREVIATION) %>%
+  do(pred = predict(my_rf(.), newdata = test_starter))
+
+rf_preds_train = train_starter %>% 
+  group_by(TEAM_ABBREVIATION) %>%
+  do(pred = predict(my_rf(.), newdata = train_starter))
+
+#
+rf_error_rate_test = rep(0, 30)
+for (x in 1:30) {
+  rf_pred_list = rf_preds$pred[[x]]
+  rf_pred = rep(0, length(rf_pred_list))
+  threshold <- 0.5
+  rf_pred[rf_pred_list > threshold] = 1
+  rf_error_rate_test[x] = mean(rf_pred != test_starter$WIN)
+}
+
+rf_error_rate_train = rep(0, 30)
+for (x in 1:30) {
+  rf_pred_list = rf_preds_train$pred[[x]]
+  rf_pred = rep(0, length(rf_pred_list))
+  threshold <- 0.5
+  rf_pred[rf_pred_list > threshold] = 1
+  rf_error_rate_train[x] = mean(rf_pred != train_starter$WIN)
+}
+
+
+print(lm_models$TEAM_ABBREVIATION)
+print(rf_error_rate_train)
+print(rf_error_rate_test)
+```
+
+
+# SVM model:
+
+```{r}
+#
+my_svm <- function(df) {
+    fit = svm(WIN~ MIN + FGM + FGA + FG_PCT + FG3M + FG3A + FG3_PCT + FTM + FTA + FT_PCT + OREB + DREB + REB + AST + STL + BLK + TO + PF + PTS + PLUS_MINUS + Home_team, kernel = "radial", data = df)
+    return(fit)
+}
+
+svm_preds = train_starter %>% 
+  group_by(TEAM_ABBREVIATION) %>%
+  do(pred = predict(my_svm(.), newdata = test_starter))
+
+svm_preds_train = train_starter %>% 
+  group_by(TEAM_ABBREVIATION) %>%
+  do(pred = predict(my_svm(.), newdata = train_starter))
+
+
+#
+svm_error_rate_test = rep(0, 30)
+for (x in 1:30) {
+  svm_pred_list = svm_preds$pred[[x]]
+  svm_pred = rep(0, length(svm_pred_list))
+  threshold <- 0.5
+  svm_pred[svm_pred_list > threshold] = 1
+  svm_error_rate_test[x] = mean(svm_pred != test_starter$WIN)
+}
+
+svm_error_rate_train = rep(0, 30)
+for (x in 1:30) {
+  svm_pred_list = svm_preds_train$pred[[x]]
+  svm_pred = rep(0, length(svm_pred_list))
+  threshold <- 0.5
+  svm_pred[svm_pred_list > threshold] = 1
+  svm_error_rate_train[x] = mean(svm_pred != train_starter$WIN)
+}
+
+
+print(lm_models$TEAM_ABBREVIATION)
+print(svm_error_rate_train)
+print(svm_error_rate_test)
+```
+
+
+# Print the results
+```{r}
+df_results_train <- data.frame(svm = svm_error_rate_train, RF = rf_error_rate_train, lm=lm_error_rate_train)
+row.names(df_results_train) <- lm_models$TEAM_ABBREVIATION
+
+df_results_test <- data.frame(svm = svm_error_rate_test, RF = rf_error_rate_test, lm=lm_error_rate_test)
+row.names(df_results_test) <- lm_models$TEAM_ABBREVIATION
+
+df_results_train
+df_results_test
+barplot(t(as.matrix(df_results_train)),ylim=c(0,0.6),beside=TRUE,legend.text=TRUE,las=2,main='By team --- Training error',cex.names=1)
+```
+
+```{r}
+barplot(t(as.matrix(df_results_test)),ylim=c(0,0.6),beside=TRUE,legend.text=TRUE,las=2,main='By team --- Testing error',cex.names=1)
+
+```
+
+```{r}
+library(MASS)
+require(ISLR)
+require(caret)
+require(e1071)
+library(gbm)
+
+game_details = read_csv('2019-2020_ANNO_games_details.csv')
+game_details = subset(game_details, select = -c(COMMENT))
+head(game_details)
+summary(game_details)
+
+#point guards 
+point_guards = subset(game_details, game_details$START_POSITION == 'PG')
+point_guards = subset(point_guards, select = -c(START_POSITION, GAME_ID, TEAM_ID, TEAM_ABBREVIATION, 
+                                                TEAM_CITY, PLAYER_ID, PLAYER_NAME))
+point_guards$WIN = as.factor(point_guards$WIN)
+point_guards = na.omit(point_guards)
+train <- sample(nrow(point_guards) * 0.7)
+train_set <- point_guards[train, ]
+test_set <- point_guards[-train, ]
+
+log.fit <- glm(WIN ~ ., data = train_set, family = "binomial")
+log.probability <- predict(log.fit, newdata = test_set, type = "response")
+log.prediction <- ifelse(log.probability > 0.5, 1, 0)
+table(test_set$WIN, log.prediction)
+
+svm.fit <- svm(WIN ~ ., data = train_set, kernel = 'linear', cost = 0.01)
+postResample(predict(svm.fit, train_set), train_set$WIN)
+postResample(predict(svm.fit, test_set), test_set$WIN)
+
+svm.fit2 <- svm(WIN ~ ., data = train_set, kernel = 'radial', cost = 0.01)
+postResample(predict(svm.fit2, train_set), train_set$WIN)
+postResample(predict(svm.fit2, test_set), test_set$WIN)
+
+#shooting guards
+shooting_guards = subset(game_details, game_details$START_POSITION == 'SG')
+shooting_guards = subset(shooting_guards, select = -c(START_POSITION, GAME_ID, TEAM_ID, TEAM_ABBREVIATION, 
+                                                TEAM_CITY, PLAYER_ID, PLAYER_NAME))
+shooting_guards$WIN = as.factor(shooting_guards$WIN)
+shooting_guards = na.omit(shooting_guards)
+train <- sample(nrow(shooting_guards) * 0.7)
+train_set <- shooting_guards[train, ]
+test_set <- shooting_guards[-train, ]
+
+log.fit <- glm(WIN ~ ., data = train_set, family = "binomial")
+log.probability <- predict(log.fit, newdata = test_set, type = "response")
+log.prediction <- ifelse(log.probability > 0.5, 1, 0)
+table(test_set$WIN, log.prediction)
+
+svm.fit <- svm(WIN ~ ., data = train_set, kernel = 'linear', cost = 0.01)
+postResample(predict(svm.fit, train_set), train_set$WIN)
+postResample(predict(svm.fit, test_set), test_set$WIN)
+
+svm.fit2 <- svm(WIN ~ ., data = train_set, kernel = 'radial', cost = 0.01)
+postResample(predict(svm.fit2, train_set), train_set$WIN)
+postResample(predict(svm.fit2, test_set), test_set$WIN)
+
+#small forwards
+small_forwards = subset(game_details, game_details$START_POSITION == 'SF')
+small_forwards = subset(small_forwards, select = -c(START_POSITION, GAME_ID, TEAM_ID, TEAM_ABBREVIATION, 
+                                                      TEAM_CITY, PLAYER_ID, PLAYER_NAME))
+small_forwards$WIN = as.factor(small_forwards$WIN)
+small_forwards = na.omit(small_forwards)
+train <- sample(nrow(small_forwards) * 0.7)
+train_set <- small_forwards[train, ]
+test_set <- small_forwards[-train, ]
+
+log.fit <- glm(WIN ~ ., data = train_set, family = "binomial")
+log.probability <- predict(log.fit, newdata = test_set, type = "response")
+log.prediction <- ifelse(log.probability > 0.5, 1, 0)
+table(test_set$WIN, log.prediction)
+
+svm.fit <- svm(WIN ~ ., data = train_set, kernel = 'linear', cost = 0.01)
+postResample(predict(svm.fit, train_set), train_set$WIN)
+postResample(predict(svm.fit, test_set), test_set$WIN)
+
+svm.fit2 <- svm(WIN ~ ., data = train_set, kernel = 'radial', cost = 0.01)
+postResample(predict(svm.fit2, train_set), train_set$WIN)
+postResample(predict(svm.fit2, test_set), test_set$WIN)
+
+#power forwards
+power_forwards = subset(game_details, game_details$START_POSITION == 'PF')
+power_forwards = subset(power_forwards, select = -c(START_POSITION, GAME_ID, TEAM_ID, TEAM_ABBREVIATION, 
+                                                    TEAM_CITY, PLAYER_ID, PLAYER_NAME))
+power_forwards$WIN = as.factor(power_forwards$WIN)
+power_forwards = na.omit(power_forwards)
+train <- sample(nrow(power_forwards) * 0.7)
+train_set <- power_forwards[train, ]
+test_set <- power_forwards[-train, ]
+
+log.fit <- glm(WIN ~ ., data = train_set, family = "binomial")
+log.probability <- predict(log.fit, newdata = test_set, type = "response")
+log.prediction <- ifelse(log.probability > 0.5, 1, 0)
+table(test_set$WIN, log.prediction)
+
+svm.fit <- svm(WIN ~ ., data = train_set, kernel = 'linear', cost = 0.01)
+postResample(predict(svm.fit, train_set), train_set$WIN)
+postResample(predict(svm.fit, test_set), test_set$WIN)
+
+svm.fit2 <- svm(WIN ~ ., data = train_set, kernel = 'radial', cost = 0.01)
+postResample(predict(svm.fit2, train_set), train_set$WIN)
+postResample(predict(svm.fit2, test_set), test_set$WIN)
+
+#centers
+centers = subset(game_details, game_details$START_POSITION == 'C')
+centers = subset(centers, select = -c(START_POSITION, GAME_ID, TEAM_ID, TEAM_ABBREVIATION, 
+                                                    TEAM_CITY, PLAYER_ID, PLAYER_NAME))
+centers$WIN = as.factor(centers$WIN)
+centers = na.omit(centers)
+train <- sample(nrow(centers) * 0.7)
+train_set <- centers[train, ]
+test_set <- centers[-train, ]
+
+log.fit <- glm(WIN ~ ., data = train_set, family = "binomial")
+log.probability <- predict(log.fit, newdata = test_set, type = "response")
+log.prediction <- ifelse(log.probability > 0.5, 1, 0)
+table(test_set$WIN, log.prediction)
+
+svm.fit <- svm(WIN ~ ., data = train_set, kernel = 'linear', cost = 0.01)
+postResample(predict(svm.fit, train_set), train_set$WIN)
+postResample(predict(svm.fit, test_set), test_set$WIN)
+
+svm.fit2 <- svm(WIN ~ ., data = train_set, kernel = 'radial', cost = 0.01)
+postResample(predict(svm.fit2, train_set), train_set$WIN)
+postResample(predict(svm.fit2, test_set), test_set$WIN)
+```
+
