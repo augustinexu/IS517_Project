@@ -25,8 +25,8 @@ log.prediction <- ifelse(log.probability > 0.5, 1, 0)
 table(test_set$WIN, log.prediction)
 
 svm.fit <- svm(WIN ~ ., data = train_set, kernel = 'linear', cost = 0.01)
-pg_train_error = postResample(predict(svm.fit, train_set), train_set$WIN)
-pg_test_error = postResample(predict(svm.fit, test_set), test_set$WIN)
+pg_train_error = 1 - postResample(predict(svm.fit, train_set), train_set$WIN)[1]
+pg_test_error = 1 - postResample(predict(svm.fit, test_set), test_set$WIN)[1]
 print(pg_train_error)
 print(pg_test_error)
 
@@ -52,8 +52,8 @@ log.prediction <- ifelse(log.probability > 0.5, 1, 0)
 table(test_set$WIN, log.prediction)
 
 svm.fit <- svm(WIN ~ ., data = train_set, kernel = 'linear', cost = 0.01)
-sg_train_error = postResample(predict(svm.fit, train_set), train_set$WIN)
-sg_test_error = postResample(predict(svm.fit, test_set), test_set$WIN)
+sg_train_error = 1 - postResample(predict(svm.fit, train_set), train_set$WIN)[1]
+sg_test_error = 1 - postResample(predict(svm.fit, test_set), test_set$WIN)[1]
 print(sg_train_error)
 print(sg_test_error)
 
@@ -77,8 +77,8 @@ log.prediction <- ifelse(log.probability > 0.5, 1, 0)
 table(test_set$WIN, log.prediction)
 
 svm.fit <- svm(WIN ~ ., data = train_set, kernel = 'linear', cost = 0.01)
-sf_train_error = postResample(predict(svm.fit, train_set), train_set$WIN)
-sf_test_error = postResample(predict(svm.fit, test_set), test_set$WIN)
+sf_train_error = 1 - postResample(predict(svm.fit, train_set), train_set$WIN)[1]
+sf_test_error = 1 - postResample(predict(svm.fit, test_set), test_set$WIN)[1]
 print(sf_train_error)
 print(sf_test_error)
 
@@ -102,8 +102,8 @@ log.prediction <- ifelse(log.probability > 0.5, 1, 0)
 table(test_set$WIN, log.prediction)
 
 svm.fit <- svm(WIN ~ ., data = train_set, kernel = 'linear', cost = 0.01)
-pf_train_error = postResample(predict(svm.fit, train_set), train_set$WIN)
-pf_test_error = postResample(predict(svm.fit, test_set), test_set$WIN)
+pf_train_error = 1 - postResample(predict(svm.fit, train_set), train_set$WIN)[1]
+pf_test_error = 1 - postResample(predict(svm.fit, test_set), test_set$WIN)[1]
 print(pf_train_error)
 print(pf_test_error)
 
@@ -127,8 +127,8 @@ log.prediction <- ifelse(log.probability > 0.5, 1, 0)
 table(test_set$WIN, log.prediction)
 
 svm.fit <- svm(WIN ~ ., data = train_set, kernel = 'linear', cost = 0.01)
-c_train_error = postResample(predict(svm.fit, train_set), train_set$WIN)
-c_test_error = postResample(predict(svm.fit, test_set), test_set$WIN)
+c_train_error = 1 - postResample(predict(svm.fit, train_set), train_set$WIN)[1]
+c_test_error = 1 - postResample(predict(svm.fit, test_set), test_set$WIN)[1]
 print(c_train_error)
 print(c_test_error)
 
