@@ -16,7 +16,6 @@ library(e1071)
 library(dplyr)
 library(randomForest)
 benches = read_csv('2019-2020_ANNO_games_details_BENCH.csv')
-starters = read_csv('2019-2020_ANNO_games_details_STARTER.csv')
 ```
 
 ```{r}
@@ -25,7 +24,7 @@ benches$WIN = as.factor(benches$WIN)
 train = sample(1:nrow(benches), nrow(benches)*.7)
 bench.train = benches[train,]
 bench.test = benches[-train,]
-stats = subset(benches,select = -c(X1,GAME_ID,TEAM_CITY,TEAM_ID,PLAYER_ID,PLAYER_NAME,MIN,Home_team,COMMENT))
+stats = subset(benches,select = -c(X1,GAME_ID,TEAM_CITY,TEAM_ID,PLAYER_ID,PLAYER_NAME,COMMENT))
 stats = na.omit(stats)
 stats.train = stats[train,]
 stats.test = stats[-train,]
@@ -193,25 +192,25 @@ for (x in 1:30){
 #SVM groupby Team only. 
 set.seed(1)
 svm.team = function(df){
-  model = svm(WIN~FGM + FGA + FG_PCT + FG3M + FG3A + FG3_PCT + FTM + FTA + FT_PCT + OREB + DREB + REB + AST + STL + BLK + TO + PF + PTS + PLUS_MINUS, data=df, kernel='radial')
+  model = svm(WIN~MIN + FGM + FGA + FG_PCT + FG3M + FG3A + FG3_PCT + FTM + FTA + FT_PCT + OREB + DREB + REB + AST + STL + BLK + TO + PF + PTS + PLUS_MINUS+ Home_team, data=df, kernel='radial')
   return(model)
 }
 svm.pred = stats.train %>%
-  group_by(TEAM_ABBREVIATION)%>%
+  group_by(START_POSITION)%>%
   do(pred = predict(svm.team(.), newdata = stats.test))
 svmpred.train = stats.train %>%
-  group_by(TEAM_ABBREVIATION)%>%
+  group_by(START_POSITION)%>%
   do(pred = predict(svm.team(.), newdata = stats.train))
-svm.error_rate = rep(0,30)
-for (x in 1:30){
+svm.error_rate = rep(0,5)
+for (x in 1:5){
   pred_list = svm.pred$pred[[x]]
   pred = rep(0,length(pred_list))
   threshold = 0.5
   pred[pred_list > threshold] = 1
   svm.error_rate[x] = mean(pred != stats.test$WIN)
 }
-svm.error_rate_train = rep(0,30)
-for (x in 1:30){
+svm.error_rate_train = rep(0,5)
+for (x in 1:5){
   pred_list = svmpred.train$pred[[x]]
   pred = rep(0,length(pred_list))
   threshold = 0.5

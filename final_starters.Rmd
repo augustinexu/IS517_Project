@@ -406,6 +406,7 @@ barplot(t(as.matrix(df_results_train)),ylim=c(0,0.6),beside=TRUE,legend.text=TRU
 
 ```{r}
 barplot(t(as.matrix(df_results_test)),ylim=c(0,0.6),beside=TRUE,legend.text=TRUE,las=2,main='By team --- Testing error',cex.names=1)
+
 ```
 
 
